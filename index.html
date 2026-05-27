@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>불의 도시 - 아쿠아 랜스 익스트림</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&display=swap');
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Pretendard', sans-serif;
+            user-select: none;
+            touch-action: none;
+        }
+        canvas { display: block; }
+        #ui-layer {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            display: flex; flex-direction: column; justify-content: space-between;
+            padding: 30px; color: white;
+        }
+        .orbitron { font-family: 'Orbitron', sans-serif; }
+        .panel {
+            pointer-events: auto;
+            background: rgba(20, 10, 5, 0.7);
+            backdrop-filter: blur(10px);
+            padding: 15px 25px;
+            border-radius: 12px;
+            border: 2px solid rgba(255, 100, 0, 0.4);
+            box-shadow: 0 0 20px rgba(255, 50, 0, 0.2);
+        }
+        .heat-container {
+            width: 100%; height: 12px; background: rgba(255, 255, 255, 0.1);
+            border-radius: 6px; overflow: hidden; margin-top: 10px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        #heat-bar {
+            width: 0%; height: 100%;
+            background: linear-gradient(90deg, #facc15, #ef4444, #7f1d1d);
+            transition: width 0.1s linear;
+        }
+        .btn {
+            pointer-events: auto;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            padding: 15px 40px; border-radius: 8px; font-weight: 900;
+            cursor: pointer; transition: all 0.2s;
+            text-transform: uppercase; letter-spacing: 2px;
+            border: none; color: white; box-shadow: 0 5px 0 #1d4ed8;
+            display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #1d4ed8; }
+        .btn-tablet {
+            background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+            box-shadow: 0 5px 0 #4c1d95;
+        }
+        .btn-tablet:active { box-shadow: 0 2px 0 #4c1d95; }
+        .btn-map {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            box-shadow: 0 5px 0 #047857;
+        }
+        .btn-map:active { box-shadow: 0 2px 0 #047857; }
+
+        #message-box {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%); text-align: center; z-index: 100;
+            width: 90%; max-width: 500px;
+        }
+        .hidden { display: none; }
+        .perfect-text {
+            position: absolute; color: #60a5fa; font-weight: 900;
+            font-size: 2rem; pointer-events: none; animation: popUp 0.8s ease-out forwards;
+            text-shadow: 0 0 10px rgba(96, 165, 250, 0.8);
+        }
+        @keyframes popUp {
+            0% { transform: scale(0.5); opacity: 0; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: translateY(-50px) scale(1); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="ui-layer">
+        <div class="flex justify-between items-start">
+            <div class="panel w-64">
+                <div class="flex justify-between items-end mb-1">
+                    <span class="text-orange-500 font-bold orbitron text-xs">CITY TEMPERATURE</span>
+                    <span id="heat-percent" class="text-xs">0%</span>
+                </div>
+                <div class="heat-container">
+                    <div id="heat-bar"></div>
+                </div>
+            </div>
+            <div class="panel text-right">
+                <div class="text-3xl font-black orbitron text-blue-400" id="score-text">0000</div>
+                <div class="text-xs opacity-60" id="level-text">STAGE 01</div>
+            </div>
+        </div>
+
+        <div class="flex justify-center mb-4">
+            <div class="panel text-center">
+                <p id="instruction" class="text-sm">정확한 <span class="text-yellow-400">현의 중점</span>을 찾아 <span class="text-blue-400 font-bold">더블 클릭</span>!</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="message-box">
+        <!-- Start Screen -->
+        <div id="start-screen" class="panel p-10">
+            <h2 class="text-5xl font-black mb-4 orbitron text-transparent bg-clip-text bg-gradient-to-b from-orange-400 to-red-600">AQUA LANCE</h2>
+            <p class="mb-8 leading-relaxed opacity-90">용사여, 불의 도시가 열기로 타오르고 있습니다!<br>샐러맨더의 기하학적 약점을 찔러 정화하세요.</p>
+            <div class="btn inline-block" onclick="startGame()">MISSION START</div>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="game-over-screen" class="panel p-10 hidden">
+            <h2 class="text-4xl font-black mb-4 text-red-500 orbitron">MISSION FAILED</h2>
+            <p class="mb-6">도시의 열기가 한계를 초과했습니다.</p>
+            <div class="btn inline-block" onclick="location.reload()">RETRY</div>
+        </div>
+
+        <!-- Victory Screen (Updated with Map/Tablet options) -->
+        <div id="clear-screen" class="panel p-10 hidden">
+            <h2 class="text-5xl font-black mb-4 text-blue-400 orbitron">PURIFIED!</h2>
+            <p class="mb-8 leading-relaxed">훌륭합니다, 용사여!<br>15마리의 화염 정령이 모두 물의 창에 정화되었습니다.</p>
+            
+            <div class="flex flex-col gap-4">
+                <button class="btn btn-tablet w-full" onclick="openTablet()">
+                    <span>📜</span> 지혜의 석판 읽기
+                </button>
+                <button class="btn btn-map w-full" onclick="returnToMap()">
+                    <span>🗺️</span> 모험의 지도 펼치기
+                </button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const heatBar = document.getElementById('heat-bar');
+    const heatPercentText = document.getElementById('heat-percent');
+    const scoreText = document.getElementById('score-text');
+    const levelText = document.getElementById('level-text');
+    const startScreen = document.getElementById('start-screen');
+    const gameOverScreen = document.getElementById('game-over-screen');
+    const clearScreen = document.getElementById('clear-screen');
+
+    let width, height;
+    let gameState = 'START';
+    let currentLevel = 1;
+    let score = 0;
+    let heat = 0;
+    let salamanders = [];
+    let particles = [];
+    let projectiles = [];
+    let mouse = { x: 0, y: 0 };
+    let lastClickTime = 0;
+    let shake = 0;
+
+    const LEVEL_CONFIG = [
+        { count: 2, heatRate: 0.04 },
+        { count: 3, heatRate: 0.06 },
+        { count: 4, heatRate: 0.08 },
+        { count: 6, heatRate: 0.10 }
+    ];
+
+    class Projectile {
+        constructor(startX, startY, targetX, targetY, onHit) {
+            this.x = startX;
+            this.y = startY;
+            this.tx = targetX;
+            this.ty = targetY;
+            this.speed = 25;
+            this.onHit = onHit;
+            this.active = true;
+            const angle = Math.atan2(targetY - startY, targetX - startX);
+            this.vx = Math.cos(angle) * this.speed;
+            this.vy = Math.sin(angle) * this.speed;
+        }
+        update() {
+            this.x += this.vx;
+            this.y += this.vy;
+            if (Math.hypot(this.tx - this.x, this.ty - this.y) < 30) {
+                this.active = false;
+                this.onHit();
+            }
+        }
+        draw() {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.rotate(Math.atan2(this.vy, this.vx));
+            ctx.fillStyle = '#60a5fa';
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(-40, 8);
+            ctx.lineTo(-30, 0);
+            ctx.lineTo(-40, -8);
+            ctx.closePath();
+            ctx.fill();
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#3b82f6';
+            ctx.strokeStyle = '#fff';
+            ctx.stroke();
+            ctx.restore();
+        }
+    }
+
+    class Salamander {
+        constructor() {
+            this.radius = 60 + Math.random() * 40;
+            this.spawn();
+            this.rotation = Math.random() * Math.PI * 2;
+            this.rotSpeed = (Math.random() - 0.5) * 0.02;
+            this.pulse = 0;
+            this.isDead = false;
+            this.opacity = 0;
+            this.setupGeometry();
+        }
+
+        spawn() {
+            this.x = this.radius + 50 + Math.random() * (width - this.radius * 2 - 100);
+            this.y = this.radius + 100 + Math.random() * (height - this.radius * 2 - 250);
+        }
+
+        setupGeometry() {
+            const angle1 = Math.random() * Math.PI * 2;
+            const angle2 = angle1 + (Math.PI * 0.5) + (Math.random() * Math.PI * 0.9);
+            this.p1 = { x: Math.cos(angle1) * this.radius, y: Math.sin(angle1) * this.radius };
+            this.p2 = { x: Math.cos(angle2) * this.radius, y: Math.sin(angle2) * this.radius };
+            this.points = [];
+            const numPoints = 5;
+            const midIndex = 2;
+            for(let i=0; i<numPoints; i++) {
+                let t = (i === midIndex) ? 0.5 : (i + 0.1 + Math.random() * 0.8) / numPoints;
+                this.points.push({
+                    t,
+                    x: this.p1.x + (this.p2.x - this.p1.x) * t,
+                    y: this.p1.y + (this.p2.y - this.p1.y) * t,
+                    isMid: (t === 0.5)
+                });
+            }
+            this.selectedPoint = null;
+        }
+
+        update() {
+            if (this.opacity < 1) this.opacity += 0.05;
+            this.pulse += 0.05;
+            this.rotation += this.rotSpeed;
+        }
+
+        draw() {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.rotate(this.rotation);
+            ctx.globalAlpha = this.opacity;
+
+            const s = Math.sin(this.pulse) * 4;
+            
+            const grad = ctx.createRadialGradient(0, 0, 5, 0, 0, this.radius + 30);
+            grad.addColorStop(0, 'rgba(255, 80, 0, 0.4)');
+            grad.addColorStop(1, 'rgba(255, 20, 0, 0)');
+            ctx.fillStyle = grad;
+            ctx.beginPath(); ctx.arc(0, 0, this.radius + 30 + s, 0, Math.PI * 2); ctx.fill();
+
+            ctx.fillStyle = '#ef4444';
+            ctx.strokeStyle = '#7f1d1d';
+            ctx.lineWidth = 1;
+
+            ctx.beginPath();
+            ctx.moveTo(-35, 0);
+            const tailWag = Math.sin(this.pulse * 2) * 15;
+            ctx.bezierCurveTo(-60, tailWag, -70, -tailWag, -90, 0);
+            ctx.lineWidth = 8;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+
+            const legMove = Math.sin(this.pulse * 3) * 5;
+            ctx.lineWidth = 4;
+            this.drawLeg(15, -15, 10 + legMove, -25, 20, -15);
+            this.drawLeg(15, 15, 10 - legMove, 25, 20, 15);
+            this.drawLeg(-15, -15, -25 - legMove, -25, -20, -15);
+            this.drawLeg(-15, 15, -25 + legMove, 25, -20, 15);
+
+            ctx.beginPath();
+            ctx.ellipse(0, 0, 45, 22, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(35, 0);
+            ctx.lineTo(55, -12);
+            ctx.lineTo(70, 0);
+            ctx.lineTo(55, 12);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#000';
+            ctx.beginPath(); ctx.arc(58, -5, 2, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(58, 5, 2, 0, Math.PI*2); ctx.fill();
+
+            ctx.fillStyle = '#fff';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#fff';
+            ctx.beginPath(); ctx.arc(0, 0, 8 + Math.sin(this.pulse*2)*3, 0, Math.PI*2); ctx.fill();
+            ctx.shadowBlur = 0;
+
+            ctx.rotate(-this.rotation);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath(); ctx.arc(0, 0, this.radius, 0, Math.PI*2); ctx.stroke();
+            ctx.setLineDash([]);
+
+            const cos = Math.cos(this.rotation);
+            const sin = Math.sin(this.rotation);
+            const getRot = (p) => ({ x: p.x * cos - p.y * sin, y: p.x * sin + p.y * cos });
+            
+            const rp1 = getRot(this.p1);
+            const rp2 = getRot(this.p2);
+            ctx.strokeStyle = '#facc15';
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(rp1.x, rp1.y); ctx.lineTo(rp2.x, rp2.y); ctx.stroke();
+
+            this.points.forEach(p => {
+                const rp = getRot(p);
+                const dist = Math.hypot(mouse.x - (this.x + rp.x), mouse.y - (this.y + rp.y));
+                const isHover = dist < 15;
+
+                ctx.fillStyle = isHover ? '#60a5fa' : '#fff';
+                ctx.beginPath(); ctx.arc(rp.x, rp.y, 6, 0, Math.PI*2); ctx.fill();
+
+                if (isHover || this.selectedPoint === p) {
+                    const dx = rp2.x - rp1.x;
+                    const dy = rp2.y - rp1.y;
+                    const len = Math.hypot(dx, dy);
+                    const px = -dy / len;
+                    const py = dx / len;
+                    ctx.strokeStyle = 'rgba(96, 165, 250, 0.6)';
+                    ctx.beginPath();
+                    ctx.moveTo(rp.x - px * 350, rp.y - py * 350);
+                    ctx.lineTo(rp.x + px * 350, rp.y + py * 350);
+                    ctx.stroke();
+                }
+            });
+
+            ctx.restore();
+        }
+
+        drawLeg(sx, sy, mx, my, ex, ey) {
+            ctx.beginPath();
+            ctx.moveTo(sx, sy);
+            ctx.lineTo(mx, my);
+            ctx.lineTo(ex, ey);
+            ctx.stroke();
+        }
+
+        checkClick(x, y, isDoubleClick) {
+            const cos = Math.cos(this.rotation);
+            const sin = Math.sin(this.rotation);
+            for (let p of this.points) {
+                const rx = p.x * cos - p.y * sin;
+                const ry = p.x * sin + p.y * cos;
+                const dist = Math.hypot(x - (this.x + rx), y - (this.y + ry));
+                if (dist < 20) {
+                    this.selectedPoint = p;
+                    if (isDoubleClick) {
+                        this.shoot(this.x + rx, this.y + ry, p.isMid);
+                    }
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        shoot(targetX, targetY, isCorrect) {
+            projectiles.push(new Projectile(width/2, height + 50, targetX, targetY, () => {
+                if (isCorrect) {
+                    this.purify();
+                    addFloatingText(targetX, targetY, "PERFECT!");
+                    score += 500;
+                    heat = Math.max(0, heat - 15);
+                    shake = 15;
+                } else {
+                    addFloatingText(targetX, targetY, "MISS");
+                    heat += 10;
+                    shake = 5;
+                }
+            }));
+        }
+
+        purify() {
+            this.isDead = true;
+            for(let i=0; i<40; i++) particles.push(new Particle(this.x, this.y, '#60a5fa', true));
+        }
+    }
+
+    class Particle {
+        constructor(x, y, color, splash = false) {
+            this.x = x; this.y = y; this.color = color;
+            const angle = Math.random() * Math.PI * 2;
+            const speed = splash ? (3 + Math.random() * 8) : (1 + Math.random() * 2);
+            this.vx = Math.cos(angle) * speed;
+            this.vy = Math.sin(angle) * speed;
+            this.life = 1.0;
+            this.decay = 0.01 + Math.random() * 0.02;
+            this.size = (splash ? 3 : 1) + Math.random() * 3;
+        }
+        update() {
+            this.x += this.vx; this.y += this.vy;
+            if (this.color === '#60a5fa') this.vy += 0.1;
+            this.life -= this.decay;
+        }
+        draw() {
+            ctx.globalAlpha = this.life;
+            ctx.fillStyle = this.color;
+            ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI*2); ctx.fill();
+            ctx.globalAlpha = 1;
+        }
+    }
+
+    function addFloatingText(x, y, txt) {
+        const div = document.createElement('div');
+        div.className = 'perfect-text orbitron';
+        div.innerText = txt;
+        div.style.left = x + 'px';
+        div.style.top = y + 'px';
+        document.body.appendChild(div);
+        setTimeout(() => div.remove(), 1000);
+    }
+
+    function init() {
+        resize();
+        window.addEventListener('resize', resize);
+        canvas.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+        canvas.addEventListener('mousedown', handleInteraction);
+        animate();
+    }
+
+    function resize() {
+        width = canvas.width = window.innerWidth;
+        height = canvas.height = window.innerHeight;
+    }
+
+    function handleInteraction(e) {
+        if (gameState !== 'PLAYING') return;
+        const now = Date.now();
+        const isDoubleClick = (now - lastClickTime < 300);
+        lastClickTime = now;
+        salamanders.forEach(s => s.checkClick(mouse.x, mouse.y, isDoubleClick));
+    }
+
+    function startGame() {
+        startScreen.classList.add('hidden');
+        gameState = 'PLAYING';
+        currentLevel = 1;
+        score = 0;
+        heat = 0;
+        startLevel();
+    }
+
+    function startLevel() {
+        const config = LEVEL_CONFIG[currentLevel - 1];
+        salamanders = [];
+        for(let i=0; i<config.count; i++) salamanders.push(new Salamander());
+        levelText.innerText = `STAGE 0${currentLevel}`;
+    }
+
+    // New Choice Functions
+    function openTablet() {
+        // Placeholder for the YouTube link
+        window.open('https://www.youtube.com', '_blank');
+    }
+
+    function returnToMap() {
+        // Logically return to the map (in this single-file app, we reload or reset)
+        location.reload();
+    }
+
+    function animate() {
+        ctx.fillStyle = '#0a0500';
+        ctx.fillRect(0, 0, width, height);
+
+        ctx.save();
+        if (shake > 0) {
+            ctx.translate((Math.random()-0.5)*shake, (Math.random()-0.5)*shake);
+            shake *= 0.9;
+        }
+
+        if (Math.random() > 0.7) particles.push(new Particle(Math.random()*width, height, '#ff4400'));
+
+        if (gameState === 'PLAYING') {
+            const config = LEVEL_CONFIG[currentLevel - 1];
+            heat += config.heatRate;
+            heatBar.style.width = heat + '%';
+            heatPercentText.innerText = Math.floor(heat) + '%';
+            scoreText.innerText = score.toString().padStart(4, '0');
+
+            if (heat >= 100) {
+                gameState = 'GAMEOVER';
+                gameOverScreen.classList.remove('hidden');
+            }
+
+            salamanders.forEach((s, i) => {
+                s.update(); s.draw();
+                if (s.isDead) salamanders.splice(i, 1);
+            });
+
+            if (salamanders.length === 0 && projectiles.length === 0) {
+                if (currentLevel < LEVEL_CONFIG.length) {
+                    currentLevel++;
+                    startLevel();
+                } else {
+                    gameState = 'CLEAR';
+                    clearScreen.classList.remove('hidden');
+                }
+            }
+        }
+
+        projectiles.forEach((p, i) => {
+            p.update(); p.draw();
+            if (!p.active) projectiles.splice(i, 1);
+        });
+
+        particles.forEach((p, i) => {
+            p.update(); p.draw();
+            if (p.life <= 0) particles.splice(i, 1);
+        });
+
+        ctx.restore();
+        requestAnimationFrame(animate);
+    }
+
+    window.onload = init;
+</script>
+</body>
+</html>
