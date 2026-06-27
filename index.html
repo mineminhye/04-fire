@@ -322,40 +322,41 @@
             ctx.beginPath(); ctx.arc(0, 0, 8 + Math.sin(this.pulse*2)*3, 0, Math.PI*2); ctx.fill();
             ctx.shadowBlur = 0;
 
-            ctx.rotate(-this.rotation);
+            // 원과 현은 이미 rotate된 좌표계 안에서 그냥 그리면 됨 (이중회전 제거)
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
             ctx.setLineDash([4, 4]);
+            ctx.lineWidth = 2;
             ctx.beginPath(); ctx.arc(0, 0, this.radius, 0, Math.PI*2); ctx.stroke();
             ctx.setLineDash([]);
 
-            const cos = Math.cos(this.rotation);
-            const sin = Math.sin(this.rotation);
-            const getRot = (p) => ({ x: p.x * cos - p.y * sin, y: p.x * sin + p.y * cos });
-            
-            const rp1 = getRot(this.p1);
-            const rp2 = getRot(this.p2);
+            // 현: rotate된 좌표계 안이므로 p1, p2 그대로 사용
             ctx.strokeStyle = '#facc15';
             ctx.lineWidth = 2;
-            ctx.beginPath(); ctx.moveTo(rp1.x, rp1.y); ctx.lineTo(rp2.x, rp2.y); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(this.p1.x, this.p1.y); ctx.lineTo(this.p2.x, this.p2.y); ctx.stroke();
 
             this.points.forEach(p => {
-                const rp = getRot(p);
-                const dist = Math.hypot(mouse.x - (this.x + rp.x), mouse.y - (this.y + rp.y));
+                // 호버 판정은 월드 좌표로 (역회전 적용)
+                const cos = Math.cos(this.rotation);
+                const sin = Math.sin(this.rotation);
+                const wx = p.x * cos - p.y * sin + this.x;
+                const wy = p.x * sin + p.y * cos + this.y;
+                const dist = Math.hypot(mouse.x - wx, mouse.y - wy);
                 const isHover = dist < 15;
 
                 ctx.fillStyle = isHover ? '#60a5fa' : '#fff';
-                ctx.beginPath(); ctx.arc(rp.x, rp.y, 6, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(p.x, p.y, 6, 0, Math.PI*2); ctx.fill();
 
                 if (isHover || this.selectedPoint === p) {
-                    const dx = rp2.x - rp1.x;
-                    const dy = rp2.y - rp1.y;
+                    const dx = this.p2.x - this.p1.x;
+                    const dy = this.p2.y - this.p1.y;
                     const len = Math.hypot(dx, dy);
                     const px = -dy / len;
                     const py = dx / len;
                     ctx.strokeStyle = 'rgba(96, 165, 250, 0.6)';
+                    ctx.lineWidth = 1;
                     ctx.beginPath();
-                    ctx.moveTo(rp.x - px * 350, rp.y - py * 350);
-                    ctx.lineTo(rp.x + px * 350, rp.y + py * 350);
+                    ctx.moveTo(p.x - px * 350, p.y - py * 350);
+                    ctx.lineTo(p.x + px * 350, p.y + py * 350);
                     ctx.stroke();
                 }
             });
