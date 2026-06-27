@@ -142,6 +142,9 @@
                 <button class="btn btn-map w-full" onclick="returnToMap()">
                     <span>🗺️</span> 모험의 지도 펼치기
                 </button>
+                <button class="btn w-full" onclick="location.reload()">
+                    <span>🔄</span> 게임 다시 하기
+                </button>
             </div>
         </div>
     </div>
@@ -247,8 +250,16 @@
             this.points = [];
             const numPoints = 5;
             const midIndex = 2;
+            const minDistFromMid = 0.18;
             for(let i=0; i<numPoints; i++) {
-                let t = (i === midIndex) ? 0.5 : (i + 0.1 + Math.random() * 0.8) / numPoints;
+                let t;
+                if (i === midIndex) {
+                    t = 0.5;
+                } else {
+                    do {
+                        t = (i + 0.1 + Math.random() * 0.8) / numPoints;
+                    } while (Math.abs(t - 0.5) < minDistFromMid);
+                }
                 this.points.push({
                     t,
                     x: this.p1.x + (this.p2.x - this.p1.x) * t,
@@ -375,17 +386,24 @@
         checkClick(x, y, isDoubleClick) {
             const cos = Math.cos(this.rotation);
             const sin = Math.sin(this.rotation);
+            let closest = null, closestDist = Infinity, closestRx = 0, closestRy = 0;
             for (let p of this.points) {
                 const rx = p.x * cos - p.y * sin;
                 const ry = p.x * sin + p.y * cos;
                 const dist = Math.hypot(x - (this.x + rx), y - (this.y + ry));
-                if (dist < 20) {
-                    this.selectedPoint = p;
-                    if (isDoubleClick) {
-                        this.shoot(this.x + rx, this.y + ry, p.isMid);
-                    }
-                    return true;
+                if (dist < 30 && dist < closestDist) {
+                    closest = p;
+                    closestDist = dist;
+                    closestRx = rx;
+                    closestRy = ry;
                 }
+            }
+            if (closest) {
+                this.selectedPoint = closest;
+                if (isDoubleClick) {
+                    this.shoot(this.x + closestRx, this.y + closestRy, closest.isMid);
+                }
+                return true;
             }
             return false;
         }
@@ -496,12 +514,19 @@
         const config = LEVEL_CONFIG[currentLevel - 1];
         salamanders = [];
         for(let i=0; i<config.count; i++) {
-            const s = new Salamander();
-            // 첫 스테이지 첫 마리는 정중앙 고정
-            if (currentLevel === 1 && i === 0) {
-                s.x = width / 2;
-                s.y = height / 2;
-            }
+            let s, attempts = 0;
+            do {
+                s = new Salamander();
+                if (currentLevel === 1 && i === 0) {
+                    s.x = width / 2;
+                    s.y = height / 2;
+                    break;
+                }
+                attempts++;
+            } while (
+                attempts < 50 &&
+                salamanders.some(other => Math.hypot(s.x - other.x, s.y - other.y) < s.radius * 3.5)
+            );
             salamanders.push(s);
         }
         levelText.innerText = `STAGE 0${currentLevel}`;
@@ -510,12 +535,12 @@
     // New Choice Functions
     function openTablet() {
         // Placeholder for the YouTube link
-        window.open('https://youtu.be/g7WCTQ2wV2g?si=Fq9pVNpt5dmW6wnA', '_blank');
+        window.open('https://youtu.be/g7WCTQ2wV2g?si=kpNuf5e3Xg8i7xWq', '_blank');
     }
 
     function returnToMap() {
         // Logically return to the map (in this single-file app, we reload or reset)
-        location.reload();
+        window.open('https://wontheworld.netlify.app/', '_blank');
     }
 
     function animate() {
