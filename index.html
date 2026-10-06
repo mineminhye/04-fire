@@ -364,7 +364,7 @@ class Salamander{
   lineHitsCenter(ax,ay,dx,dy){const C={x:this.cx,y:this.cy},wx=C.x-ax,wy=C.y-ay,proj=wx*dx+wy*dy;
     const cxp=ax+proj*dx,cyp=ay+proj*dy,md=Math.hypot(C.x-cxp,C.y-cyp);return{hit:md<this.R*0.11};}
   update(){if(this.opacity<1)this.opacity+=0.06;this.pulse+=0.05;this.runeSpin+=0.0025;
-    if(this.revealing){this.revealT++;if(this.revealT>=90){this.revealing=false;this.dying=true;this.deathT=0;
+    if(this.revealing){this.revealT++;if(this.revealT>=82){this.revealing=false;this.dying=true;this.deathT=0;
       for(let i=0;i<40;i++)particles.push(new Splash(this.cx,this.cy,'#38bdf8',1.2));}}
     else if(this.dying){this.deathT+=0.06;if(this.deathT>=1.05)this.done=true;}}
   drawBody(){
@@ -397,10 +397,15 @@ class Salamander{
     if(revealing){
       const a=this.hitArrow,rp=Math.min(1,this.revealT/10);
       ctx.save();ctx.globalAlpha=baseA*rp;ctx.lineCap='round';
-      ctx.strokeStyle='rgba(56,189,248,.4)';ctx.lineWidth=13;ctx.beginPath();ctx.moveTo(a.pback.x,a.pback.y);ctx.lineTo(a.pfront.x,a.pfront.y);ctx.stroke();
-      ctx.strokeStyle='#38bdf8';ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(a.pback.x,a.pback.y);ctx.lineTo(a.pfront.x,a.pfront.y);ctx.stroke();
+      // 수직이등분선 글로우(화살이 지나는 선)
+      ctx.strokeStyle='rgba(56,189,248,.45)';ctx.lineWidth=15;ctx.beginPath();ctx.moveTo(a.pback.x,a.pback.y);ctx.lineTo(a.pfront.x,a.pfront.y);ctx.stroke();
+      // ★ 맞힌 크리스탈 화살 = 현의 수직이등분선 (원을 가로질러 중심 통과)
+      const dX=a.pfront.x-a.pback.x,dY=a.pfront.y-a.pback.y,len=Math.hypot(dX,dY);
+      ctx.save();ctx.translate(a.pback.x,a.pback.y);ctx.rotate(Math.atan2(dY,dX));drawCrystalArrow(len,R*0.08,true,a.anchorX);ctx.restore();
+      // 중점의 직각 표시
       const q=R*0.07,s1={x:M.x+u.x*q,y:M.y+u.y*q},s2={x:s1.x+toC.x*q,y:s1.y+toC.y*q},s3={x:M.x+toC.x*q,y:M.y+toC.y*q};
       ctx.strokeStyle='#fff';ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(s1.x,s1.y);ctx.lineTo(s2.x,s2.y);ctx.lineTo(s3.x,s3.y);ctx.stroke();
+      // 이등분 눈금(AM=MB)
       ctx.strokeStyle='#facc15';ctx.lineWidth=3;
       const tk=p=>{for(const o of [-4.5,4.5]){const px=p.x+u.x*o,py=p.y+u.y*o;ctx.beginPath();ctx.moveTo(px-n.x*7,py-n.y*7);ctx.lineTo(px+n.x*7,py+n.y*7);ctx.stroke();}};
       tk({x:(A.x+M.x)/2,y:(A.y+M.y)/2});tk({x:(B.x+M.x)/2,y:(B.y+M.y)/2});
@@ -573,8 +578,13 @@ function diagCentral(s){pd();pieCtx.beginPath();pieCtx.arc(0,0,s*0.85,0,7);pieCt
   const a1=-Math.PI*0.16,a2=Math.PI*0.5,r=s*0.85;
   pieCtx.beginPath();pieCtx.moveTo(0,0);pieCtx.lineTo(Math.cos(a1)*r,Math.sin(a1)*r);pieCtx.moveTo(0,0);pieCtx.lineTo(Math.cos(a2)*r,Math.sin(a2)*r);pieCtx.stroke();
   pieCtx.lineWidth=2.2;pieCtx.beginPath();pieCtx.arc(0,0,r,a1,a2);pieCtx.stroke();}
-function diagInscribed(s){pd();const r=s*0.85;pieCtx.beginPath();pieCtx.arc(0,0,r,0,7);pieCtx.stroke();
-  pieCtx.beginPath();for(let k=0;k<3;k++){const a=-Math.PI/2+k*2*Math.PI/3,x=Math.cos(a)*r,y=Math.sin(a)*r;k?pieCtx.lineTo(x,y):pieCtx.moveTo(x,y);}pieCtx.closePath();pieCtx.stroke();}
+function diagInscribed(s){pd();const r=s*0.85;
+  // 외접원 (삼각형 꼭짓점을 지남)
+  pieCtx.beginPath();pieCtx.arc(0,0,r,0,7);pieCtx.stroke();
+  // 정삼각형 (꼭짓점이 외접원 위)
+  pieCtx.beginPath();for(let k=0;k<3;k++){const a=-Math.PI/2+k*2*Math.PI/3,x=Math.cos(a)*r,y=Math.sin(a)*r;k?pieCtx.lineTo(x,y):pieCtx.moveTo(x,y);}pieCtx.closePath();pieCtx.stroke();
+  // 내접원 — 세 변에 딱 접함(거리 0): 정삼각형이므로 중심(0,0), 반지름 r/2
+  pieCtx.beginPath();pieCtx.arc(0,0,r/2,0,7);pieCtx.stroke();}
 function diagPerp(s){pd();
   const Oy=-s*0.25,r=s*0.85,my=s*0.4,half=Math.sqrt(Math.max(0,r*r-(my-Oy)*(my-Oy)));
   pieCtx.beginPath();pieCtx.arc(0,Oy,r,0,7);pieCtx.stroke();
